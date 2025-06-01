@@ -1,6 +1,6 @@
 # SimpleGemini
 
-BingChat.nvim let you chat with Bing AI from inside Neovim.
+SimpleGemini.nvim let you chat with Gemini AI from inside Neovim.
 
 ## Features
 SimpleGemini plugin let you ask something to Google Gemini without leaving NeoVim. The plugin is written in Lua and takes its inspiration from askGemini.nvim. Contrary to other feature-rich plugins available on Github, this one strives to avoid imposing a specific workflow on the user.
