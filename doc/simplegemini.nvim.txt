@@ -123,9 +123,41 @@ setup({options})                                     *SimpleGeminiSetup*
     Configure options for the plugin.
 
     Parameters: ~
-      • {options}           Dictionary with options. See also
-	                    |SimpleGeminiConfiguration| for configuration
-			    parameters
+      • {options}   Dictionary with options. See also
+	            |SimpleGeminiConfiguration| for configuration parameters.
+
+
+ask_gemini({args})                                   *SimpleGeminiAsk*
+    Sumbit a prompt to the LLM.
+
+    Parameters: ~
+      • {args}      Dictionary of arguments. The table should have the same
+	            structure as the {command} argument of the 
+		    |nvim_create_user_command()| function (used to define new
+		    commands).
+		    Since this function matches the call protocol of commands,
+		    it is suitable to defe new commands. It is for example
+		    used by the |:SimpleGemini| command.
+		    The following keys are used:
+		    • args: (string) The prompt passed to the command, if any
+		    • range: (number) The number of items in the range passed
+		      to the function, 0 if no range was selected. If a range
+		      was selected, it will be added to the prompt.
+		    • line1: (number) The starting line of the command range
+		    • line2: (number) The final line of the command range
+
+    Return: ~
+        Array of lines sent as answer by the LLM
+
+
+create_scratch_with_lines({lines})                  *SimpleGeminiScratch*
+    Create a new scratch window, centered on the screen, and display lines
+    from the argument in the window. The window may be closed by pressing
+    <Esc>.
+
+    Parameters: ~
+      • {lines}     Array of lines that should be displayed on the new scratch
+	            window.
 
 ==============================================================================
 6. Changelog                                       *SimpleGeminiChangelog*

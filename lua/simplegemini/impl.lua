@@ -50,7 +50,7 @@ local function send_prompt(config, question_text)
     -- Run the job asynchronously
 	local res = ""
     local ret = vim.system(cmd, { text = true }):wait()
-	data = ret.stdout
+	local data = ret.stdout
 	if data and #data > 0 then -- Check if data is not nil and not empty table
 		-- Attempt to decode JSON response
 		local decode_ok, json_response = pcall(vim.json.decode, data)
