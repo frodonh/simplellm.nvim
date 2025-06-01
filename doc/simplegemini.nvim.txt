@@ -5,27 +5,36 @@ CONTENTS                                                *SimpleGemini*
 
     1. Features  .......................... |SimpleGeminiFeatures|
     2. Installation  ...................... |SimpleGeminiInstallation|
-    3. Commands  .......................... |SimpleGeminiCommands|
-    4. Functions  ......................... |SimpleGeminiFunctions|
-    5. Changelog  ......................... |SimpleGeminiChangelog|
-    6. Credits  ........................... |SimpleGeminiCredits|
+    3. Configuration ...................... |SimpleGeminiConfiguration|
+    4. Commands  .......................... |SimpleGeminiCommands|
+    5. Functions  ......................... |SimpleGeminiFunctions|
+    6. Changelog  ......................... |SimpleGeminiChangelog|
+    7. Credits  ........................... |SimpleGeminiCredits|
 
 ==============================================================================
-1. Features                                             *SimpleGeminiFeatures*
+1. Features                                        *SimpleGeminiFeatures*
 
-SimpleGemini plugin let you ask something to Gemini without leaving NeoVim.
-The plugin is written in Lua and takes its inspiration from askGemini.nvim. It
-adds a few new commands to your environment (see also |SimpleGeminiCommands|).
+SimpleGemini plugin let you ask something to Google Gemini without leaving
+NeoVim. The plugin is written in Lua and takes its inspiration from
+askGemini.nvim. Contrary to other feature-rich plugins available on Github,
+this one strives to avoid imposing a specific workflow on the user.
 
-It does not create any new keymap. You have to configure them by yourself.
+It only adds one new command and several Lua functions to your environment
+(see also |SimpleGeminiCommands|). It does not create any new keymap. You have
+to configure them by yourself.
+
+The plugin does not rely on third-party plugins.
+
+The plugin implementation is lazily loaded. There is no need to use the
+package manager for a lazy loading of the plugin.
 
 ==============================================================================
-2. Installation                                         *SimpleGeminiInstallation*
+2. Installation                                    *SimpleGeminiInstallation*
 
 The plugin needs a Gemini API key to connect to the Gemini API. You have to
 follow the instructions at https://aistudio.google.com/app/apikey?hl=fr
 
-Installation with lazy.nvim~
+Installation with lazy.nvim ~
 
 If you use lazy.nvim as your package manager, you can install SimpleGemini.nvim
 with the following specification.
@@ -34,94 +43,98 @@ with the following specification.
     [...]
     {
 	'frodonh/simplegemini.nvim',
+	opts = {
+	    [...]
+	}
     }
     [...]
  }
-<
-==============================================================================
-3. Commands                                             *SimpleGeminiCommands*
-
-                                                        *:GptToBuf*
-:[range]GptToBuf [prompt]
-                         Ask a question to Gemini chat and append answer after
-                         cursor position in the current buffer. If specified, 
-			 [prompt] is sent to Gemini chat.
-			 If [range] is given, the prompt is followed by a
-			 newline and all the lines in the range. If no
-			 [range] is specified, the current line is used.
-
-:[range]GptToBuf! {prompt}
-                         Ask a question to Gemini chat and append answer after
-			 cursor position in the current buffer. {prompt} is
-			 the prompt sent to Gemini chat.
-			 Unlike the plain version :GptToBuf, the bang command
-			 does not append the lines in the range to the prompt.
-			 [range] is ignored.
-
-                                                        *:GptToReg*
-:[range]GptToReg [prompt]
-                         Ask a question to Gemini chat and fill a register with
-                         the answer. If specified, [prompt] is sent to Gemini
-			 chat.
-			 If [range] is given, the prompt is followed by a
-			 newline and all the lines in the range. If no
-			 [range] is specified, the current line is used.
-
-:[range]GptToReg! {prompt}
-                         Ask a question to Gemini chat and fill a register with
-                         with the answer. If specified, [prompt] is sent to 
-			 Gemini chat.
-			 Unlike the plain version :GptToReg, the bang command
-			 does not append the lines in the range to the prompt.
-			 [range] is ignored.
-
-                                                        *:GptToScratch*
-:[range]GptToScratch [prompt]
-                         Ask a question to Gemini chat and display the answer   
-                         in a new floating window. If specified, [prompt]
-			 is sent to Gemini chat. The floating window can be
-			 closed by pressing <Esc>. The content of the
-			 floating window is deleted when it is closed.
-			 If [range] is given, the prompt is followed by a
-			 newline and all the lines in the range. If no
-			 [range] is specified, the current line is used.
-
-:[range]GptToScratch! {prompt}
-                         Ask a question to Gemini chat and display the answer   
-                         in a new floating window. If specified, [prompt]
-			 is sent to Gemini chat. The floating window can be
-			 closed by pressing <Esc>. The content of the
-			 floating window is deleted when it is closed.
-			 Unlike the plain version :GptToScratch, the bang
-			 command does not append the lines in the range to
-			 the prompt. [range] is ignored.
 
 ==============================================================================
-4. Functions                                            *SimpleGeminiFunctions*
-
-SetupGpt({options})                                     *SimpleGeminiSetup*
-                Configure some options. {options} is a dictionary. See also
-		|SimpleGeminiOptions| for configuration parameters.
-
-Options~
-                                                        *SimpleGeminiOptions*
+3. Configuration                                   *SimpleGeminiConfiguration*
 
 A few configuration options are provided. They may be defined at startup (with
-require 'SimpleGemini'.setup({options}) ), or using the |SetupGpt| function.
+require 'SimpleGemini'.setup({options}) ). {options} is a table with the
+configuration options.
 
-register                 A single character which identifies the register
-                         where the answer of Bing AI shall be loaded when the
-			 |:GptToReg|[!] command is used. The default value is
-			 'g'.
+api_key                  Gemini API key.
+                         If not set in the options, the value from the
+			 'GEMINI_API_KEY' environment variable is used.
+
+model                    Gemini model name (default is 'gemini-2.0-flash').
 
 ==============================================================================
-5. Changelog                                            *SimpleGeminiChangelog*
+4. Commands                                        *SimpleGeminiCommands*
+
+                                                        *:SimpleGemini*
+:[range]SimpleGemini Buffer {prompt}
+                         Ask a question to Gemini and insert answer
+			 before cursor position in the current buffer. If 
+			 specified, [prompt] is sent to Gemini.
+
+			 If [range] is given, the prompt is followed by a
+			 newline and all the lines in the range.
+
+:[range]SimpleGemini! Buffer {prompt}
+                         Ask a question to Gemini and insert answer
+			 before cursor position in the current buffer. If 
+			 specified, [prompt] is sent to Gemini.
+
+			 If [range] is given, the prompt is followed by a
+			 newline and all the lines in the range. Unlike
+			 the previous plain version, the selection is deleted
+			 before the answer is inserted.
+
+			 In other words the selected text is used as the
+			 prompt for a Gemini request, which may be preceded by
+			 another prompt, and is replaced by its answer.
+
+:[range]SimpleGemini Reg={name} {prompt}
+                         Ask a question to Gemini and fill the {name}
+			 register with the answer. If specified, {prompt} is 
+			 sent to Gemini.
+
+			 {name} should be a single character specifying the
+			 buffer which will be filled with the answer of the
+			 request to Gemini.
+			 
+			 If [range] is given, the prompt is followed by a
+			 newline and all the lines in the range.
+
+:[range]SimpleGemini Scratch [prompt]
+                         Ask a question to Gemini and display the answer   
+                         in a new floating window. If specified, {prompt}
+			 is sent to Gemini.
+
+			 The floating window can be closed by pressing <Esc>.
+			 The content of the floating window is deleted when 
+			 it is closed.
+
+			 If [range] is given, the prompt is followed by a
+			 newline and all the lines in the range.
+
+==============================================================================
+5. Functions                                       *SimpleGeminiFunctions*
+
+Functions are in the 'simplegemini' module. You have to require the module to
+use them.
+
+setup({options})                                     *SimpleGeminiSetup*
+    Configure options for the plugin.
+
+    Parameters: ~
+      • {options}           Dictionary with options. See also
+	                    |SimpleGeminiConfiguration| for configuration
+			    parameters
+
+==============================================================================
+6. Changelog                                       *SimpleGeminiChangelog*
 
 Date: May 29th, 2025
 First version
 
 ==============================================================================
-6. Credits                                              *SimpleGeminiCredits*
+7. Credits                                         *SimpleGeminiCredits*
 
 This plugin takes its inspiration from askGemini.nvim which is available here:
 https://github.com/agusnt/askGemini.nvim/tree/main

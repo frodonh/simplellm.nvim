@@ -1,59 +1,31 @@
-local sgem = require 'simplegemini.nvim'
-
-local function ask_gemini(args)
-	local prompt = ""
-	if #args.fargs > 0 then
-		prompt = args[1] .. "\n"
+vim.api.nvim_create_user_command('SimpleGemini', function(args)
+	if args.args == nil then
+		return nil
 	end
-	if not(args.bang) then
-		local lines = vim.api.nvim_buf_get_lines(0, args.line1 - 1, args.line2, false)
-		prompt = prompt .. table.concat(lines, "\n")
+	local cmd, rest = args.args:match('^(%S+)%s+(.*)$')
+	args.args = rest
+	local lines = require('simplegemini').ask_gemini(args)
+	if cmd == 'Scratch' then
+		-- Send answer to new scratch window if the bang-form was used
+		require('simplegemini').create_scratch_with_lines(lines)
+	elseif cmd:sub(1, 4) == 'Reg=' then
+		-- Send answer to provided register
+		vim.fn.setreg(cmd:sub(5), lines)
+		print("Register filled with Gemini answer")
+	elseif cmd == 'Buffer' then
+		-- Send answer to current buffer position otherwise
+		local line = vim.api.nvim_win_get_cursor(0)
+		if args.range > 0 and args.bang then
+			-- If Bang version is used, delete selection
+			vim.api.nvim_buf_set_lines(0, line[1]-1, line[1], true, {})
+		end
+		vim.api.nvim_buf_set_lines(0, line[1]-1, line[1]-1, true, lines)
+	else
+		error("Bad verb after 'SimpleGemini' command: " .. cmd)
 	end
-	local res = sgem.send_prompt(prompt)
-	local lines = {}
-	for s in res:gmatch("[^\r\n]+") do
-		table.insert(lines, s)
-	end
-	return lines
-end
-
-vim.api.nvim_create_user_command('GptToBuf', function(args)
-	local lines = ask_gemini(args)
-	local line = vim.api.nvim_win_get_cursor(0)
-	vim.api.nvim_buf_set_lines(0, line, line, false, lines)
 end, {
-		desc = 'Ask Gemini and send result to current buffer',
+		desc = 'Interact with simpleGemini',
 		nargs = '?',
-		range = '',
+		range = true,
 		bang = true,
 	})
-
-vim.api.nvim_create_user_command('GptToReg', function(args)
-	local lines = ask_gemini(args)
-	vim.fn.setreg(sgem.register, lines)
-end, {
-		desc = 'Ask Gemini and send result to register',
-		nargs = '?',
-		range = '',
-		bang = true,
-	})
-
-vim.api.nvim_create_user_command('GptToScratch', function(args)
-	local lines = ask_gemini(args)
-	local bufnr = vim.api.nvim_create_buf(false, true)
-	local winid = vim.api.nvim_open_win( bufnr, true, { title = 'Gemini', title_pos = 'center', relative = 'editor', row = math.floor(((vim.o.lines-20)/2)-1), col = math.floor(vim.o.columns/2-30), height = 20, width = 60, style = 'minimal', border = 'rounded'} )
-	vim.api.nvim_win_set_option(winid, 'winblend', 0)
-	vim.keymap.set({'n'}, '<Esc>', function()
-		vim.api.nvim_buf_delete( bufnr, {force = true} )
-	end, {
-		buffer = bufnr,
-		silent = true,
-	})
-	vim.api.nvim_buf_set_lines( bufnr, -1, 0, 0, false, lines )
-end, {
-		desc = 'Ask Gemini and send result to scratch buffer',
-		nargs = '?',
-		range = '',
-		bang = true,
-	})
-
