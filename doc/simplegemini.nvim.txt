@@ -17,7 +17,8 @@ CONTENTS                                                *SimpleGemini*
 SimpleGemini plugin let you ask something to Google Gemini without leaving
 NeoVim. The plugin is written in Lua and takes its inspiration from
 askGemini.nvim. Contrary to other feature-rich plugins available on Github,
-this one strives to avoid imposing a specific workflow on the user.
+this one strives to avoid imposing a specific workflow on the user. Calls to
+the Gemini API are made synchronously
 
 It only adds one new command and several Lua functions to your environment
 (see also |SimpleGeminiCommands|). It does not create any new keymap. You have
@@ -88,6 +89,14 @@ model                    Gemini model name (default is 'gemini-2.0-flash').
 			 In other words the selected text is used as the
 			 prompt for a Gemini request, which may be preceded by
 			 another prompt, and is replaced by its answer.
+
+:[range]SimpleGemini Reg {prompt}
+                         Ask a question to Gemini and fill the unnamed
+			 register with the answer. If specified, {prompt} is 
+			 sent to Gemini.
+
+			 If [range] is given, the prompt is followed by a
+			 newline and all the lines in the range.
 
 :[range]SimpleGemini Reg={name} {prompt}
                          Ask a question to Gemini and fill the {name}
