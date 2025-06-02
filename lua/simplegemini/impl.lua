@@ -1,7 +1,7 @@
 local M = {}
 
 -- Sent a question to Gemini
-local function send_prompt(config, question_text)
+function M.send_prompt(config, question_text)
     -- Check API key existence early
     if not config.api_key or config.api_key == '' then
         vim.notify('GEMINI_API_KEY is not set. Please set the environment variable or pass it in setup.', vim.log.levels.ERROR)
@@ -79,27 +79,7 @@ local function send_prompt(config, question_text)
 	return res
 end
 
-function M.ask_gemini(config, args)
-	local prompt = ""
-	if args.args then
-		prompt = args.args .. "\n"
-	end
-	if args.range > 0 then
-		local lines = vim.api.nvim_buf_get_lines(0, args.line1 - 1, args.line2, false)
-		prompt = prompt .. table.concat(lines, "\n")
-	end
-	local res = send_prompt(config, prompt)
-	local lines = {}
-	if res == nil then
-		return {}
-	end
-	for s in res:gmatch("[^\r\n]+") do
-		table.insert(lines, s)
-	end
-	return lines
-end
-
-function M.create_scratch_with_lines(lines)
+local function create_scratch_with_lines(lines)
 	local bufnr = vim.api.nvim_create_buf(false, true)
 	local winid = vim.api.nvim_open_win( bufnr, true, { title = ' Gemini ', title_pos = 'center', relative = 'editor', row = math.floor(((vim.o.lines-20)/2)-1), col = math.floor(vim.o.columns/2-30), height = 20, width = 60, style = 'minimal', border = 'rounded'} )
 	vim.api.nvim_win_set_option(winid, 'winblend', 0)
@@ -110,6 +90,70 @@ function M.create_scratch_with_lines(lines)
 		silent = true,
 	})
 	vim.api.nvim_buf_set_lines( bufnr, 0, 0, false, lines )
+end
+
+function M.complete(_, cmdline, _)
+	local m
+	_, m = cmdline:match("^.*SimpleGemini(Prompt)?!?%s*(%S*)$")
+	if not m then return nil ; end
+	local res = {}
+	for _, v in pairs({"Scratch ", "Reg=", "Buffer "}) do
+		if v:match("^" .. m) then table.insert(res, v) ; end
+	end
+	return res
+end
+
+function M.process(config, args)
+	if args.args == nil then
+		return nil
+	end
+	-- Parse subcommand
+	local cmd, rest = args.args:match('^(%S+)%s*(.*)$')
+	-- Build prompt
+	local prompt = rest
+	if prompt == nil or prompt == "" then
+		vim.ui.select(config.prompts, {
+			prompt = 'Select prompt:',
+			format_item = function(item)
+				return item.action
+			end
+		}, function(choice)
+			if choice ~= nil then prompt = choice.prompt ; end
+		end)
+	end
+	if args.range > 0 then
+		local lines = vim.api.nvim_buf_get_lines(0, args.line1 - 1, args.line2, false)
+		prompt = prompt .. "\n" .. table.concat(lines, "\n")
+	end
+	-- Get result
+	local res = M.send_prompt(config, prompt)
+	local lines = {}
+	if res == nil then
+		return {}
+	end
+	for s in res:gmatch("[^\r\n]+") do
+		table.insert(lines, s)
+	end
+	-- Do something with the result
+	if cmd == 'Scratch' then
+		-- Send answer to new scratch window if the bang-form was used
+		create_scratch_with_lines(lines)
+	elseif cmd:sub(1, 3) == 'Reg' then
+		-- Send answer to provided register
+		local reg = (cmd:len() < 5) and '"' or cmd:sub(5, 5)
+		vim.fn.setreg(reg, lines)
+		print("Register filled with Gemini answer")
+	elseif cmd == 'Buffer' then
+		-- Send answer to current buffer position otherwise
+		local line = vim.api.nvim_win_get_cursor(0)
+		if args.range > 0 and args.bang then
+			-- If Bang version is used, delete selection
+			vim.api.nvim_buf_set_lines(0, args.line1 - 1, args.line2, true, {})
+		end
+		vim.api.nvim_buf_set_lines(0, line[1]-1, line[1]-1, true, lines)
+	else
+		error("Bad verb after 'SimpleGemini' command: " .. cmd)
+	end
 end
 
 return M

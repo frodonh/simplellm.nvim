@@ -24,6 +24,8 @@ It only adds one new command and several Lua functions to your environment
 (see also |SimpleGeminiCommands|). It does not create any new keymap. You have
 to configure them by yourself.
 
+It is possible de setup predefined prompts for later use.
+
 The plugin does not rely on third-party plugins.
 
 The plugin implementation is lazily loaded. There is no need to use the
@@ -64,6 +66,11 @@ api_key                  Gemini API key.
 
 model                    Gemini model name (default is 'gemini-2.0-flash').
 
+prompts                  Predefined prompts. Each item in this table should
+                         have two keys:
+			 • action: (string) Summary name of the action
+			 • prompt: (string) Prompt as sent to Gemini API
+
 ==============================================================================
 4. Commands                                        *SimpleGeminiCommands*
 
@@ -71,7 +78,9 @@ model                    Gemini model name (default is 'gemini-2.0-flash').
 :[range]SimpleGemini Buffer {prompt}
                          Ask a question to Gemini and insert answer
 			 before cursor position in the current buffer. If 
-			 specified, [prompt] is sent to Gemini.
+			 specified, [prompt] is sent to Gemini. If not, the
+			 user is asked interactively to choose between a list
+			 of predefined prompts.
 
 			 If [range] is given, the prompt is followed by a
 			 newline and all the lines in the range.
@@ -79,7 +88,9 @@ model                    Gemini model name (default is 'gemini-2.0-flash').
 :[range]SimpleGemini! Buffer {prompt}
                          Ask a question to Gemini and insert answer
 			 before cursor position in the current buffer. If 
-			 specified, [prompt] is sent to Gemini.
+			 specified, [prompt] is sent to Gemini. If not, the
+			 user is asked interactively to choose between a list
+			 of predefined prompts.
 
 			 If [range] is given, the prompt is followed by a
 			 newline and all the lines in the range. Unlike
@@ -93,7 +104,9 @@ model                    Gemini model name (default is 'gemini-2.0-flash').
 :[range]SimpleGemini Reg {prompt}
                          Ask a question to Gemini and fill the unnamed
 			 register with the answer. If specified, {prompt} is 
-			 sent to Gemini.
+			 sent to Gemini. If not, the user is asked interactively
+			 to choose between a list of predefined prompts.
+
 
 			 If [range] is given, the prompt is followed by a
 			 newline and all the lines in the range.
@@ -101,7 +114,8 @@ model                    Gemini model name (default is 'gemini-2.0-flash').
 :[range]SimpleGemini Reg={name} {prompt}
                          Ask a question to Gemini and fill the {name}
 			 register with the answer. If specified, {prompt} is 
-			 sent to Gemini.
+			 sent to Gemini. If not, the user is asked interactively
+			 to choose between a list of predefined prompts.
 
 			 {name} should be a single character specifying the
 			 buffer which will be filled with the answer of the
@@ -110,10 +124,12 @@ model                    Gemini model name (default is 'gemini-2.0-flash').
 			 If [range] is given, the prompt is followed by a
 			 newline and all the lines in the range.
 
-:[range]SimpleGemini Scratch [prompt]
+:[range]SimpleGemini Scratch {prompt}
                          Ask a question to Gemini and display the answer   
                          in a new floating window. If specified, {prompt}
-			 is sent to Gemini.
+			 is sent to Gemini. If not, the user is asked
+			 interactively to choose between a list of predefined
+			 prompts.
 
 			 The floating window can be closed by pressing <Esc>.
 			 The content of the floating window is deleted when 
@@ -136,8 +152,11 @@ setup({options})                                     *SimpleGeminiSetup*
 	            |SimpleGeminiConfiguration| for configuration parameters.
 
 
-ask_gemini({args})                                   *SimpleGeminiAsk*
-    Sumbit a prompt to the LLM.
+process({args})                                      *SimpleGeminiAsk*
+    Process a user command. This is the main function of the plugin. It parses
+    the arguments of the command, submits a request to the LLM and populates
+    some destination with the answer (either the current buffer, or a
+    register, or a new scratch window).
 
     Parameters: ~
       • {args}      Dictionary of arguments. The table should have the same
@@ -159,17 +178,20 @@ ask_gemini({args})                                   *SimpleGeminiAsk*
         Array of lines sent as answer by the LLM
 
 
-create_scratch_with_lines({lines})                  *SimpleGeminiScratch*
-    Create a new scratch window, centered on the screen, and display lines
-    from the argument in the window. The window may be closed by pressing
-    <Esc>.
+send_prompt({prompt})                                *SimpleGeminiSendPrompt*
+    Send a prompt the the Gemini API.
 
     Parameters: ~
-      • {lines}     Array of lines that should be displayed on the new scratch
-	            window.
+      • {prompt}    The text of the prompt which is to be submitted.
+
+    Return: ~
+        The text of the answer of the Gemini API.
 
 ==============================================================================
 6. Changelog                                       *SimpleGeminiChangelog*
+
+Date: June 2nd, 2025
+Added a feature to use predefined prompts
 
 Date: May 29th, 2025
 First version

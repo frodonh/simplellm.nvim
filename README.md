@@ -7,6 +7,8 @@ SimpleGemini plugin let you ask something to Google Gemini without leaving NeoVi
 
 It only adds one new command and several Lua functions to your environment (see also |SimpleGeminiCommands|). It does not create any new keymap. You have to configure them by yourself.
 
+It is possible de setup predefined prompts for later use.
+
 The plugin does not rely on third-party plugins.
 
 The plugin implementation is lazily loaded. There is no need to use the package manager for a lazy loading of the plugin.
@@ -58,6 +60,7 @@ require 'simplegemini'.setup({
 |---------|---------------------------------------|--------------------|
 | api_key | `GEMINI_API_KEY` environment variable | The Gemini API key |
 | model   | `'gemini-2.0-flash'`                  | Gemini model name  |
+| prompts | Some predefines prompts are installed | Table where each item has two keys `action` and `prompt`. `action` should be a summary of what the prompt does with the selected text. `prompt` is the text of the prompt as it is sent to Gemini API |
 
 The Gemini API key can also be set by the shell environment variable `GEMINI_API_KEY`.
 
@@ -68,9 +71,12 @@ The following commands are available when the plugin is installed.
 |--------------------------|----------------------------------------------------------------------------------|
 | `:[range]SimpleGemini Buffer {prompt}` | Ask a question to Gemini and insert answer before cursor position in the current buffer. If specified, `prompt` is sent to Gemini. If `range` is given, the prompt is followed by a newline and all the lines in the range. |
 | `:[range]SimpleGemini! Buffer {prompt}` | Ask a question to Gemini and insert answer before cursor position in the current buffer. If specified, `prompt` is sent to Gemini. If `range` is given, the prompt is followed by a newline and all the lines in the range. Unlike the previous plain version, the selection is deleted before the answer is inserted. In other words the selected text is used as the prompt for a Gemini request, which may be preceded by another prompt, and is replaced by its answer. |
+| `:[range]SimpleGemini Reg {prompt}` | Ask a question to Gemini and fill the unnamed register with the answer. If specified, `prompt` is sent to Gemini. If `range` is given, the prompt is followed by a newline and all the lines in the range. |
 | `:[range]SimpleGemini Reg={name} {prompt}` | Ask a question to Gemini and fill the `name` register with the answer. If specified, `prompt` is sent to Gemini. `name` should be a single character specifying the buffer which will be filled with the answer of the request to Gemini. If `range` is given, the prompt is followed by a newline and all the lines in the range. |
 | `:[range]SimpleGemini Scratch {prompt}` | Ask a question to Gemini and display the answer in a new floating window. If specified, `prompt` is sent to Gemini. The floating window can be closed by pressing `<Esc>`. The content of the floating window is deleted when it is closed. If `range` is given, the prompt is followed by a newline and all the lines in the range. |
 
+
+When no prompt is given, the user is asked to pick one from the predefined prompts.
 
 ## Related plugins
 - [askGemini.nvim](https://github.com/agusnt/askGemini.nvim): This is the main source of inspiration for this plugin. It is a very good plugin, quite minimalistic in its design too. However I needed something that could be used without a popup window.
