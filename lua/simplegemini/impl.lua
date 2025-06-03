@@ -93,8 +93,7 @@ local function create_scratch_with_lines(lines)
 end
 
 function M.complete(_, cmdline, _)
-	local m
-	_, m = cmdline:match("^.*SimpleGemini(Prompt)?!?%s*(%S*)$")
+	local m = cmdline:match("^.*SimpleGemini!?%s*(%S*)$")
 	if not m then return nil ; end
 	local res = {}
 	for _, v in pairs({"Scratch ", "Reg=", "Buffer "}) do

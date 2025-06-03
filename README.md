@@ -80,3 +80,5 @@ When no prompt is given, the user is asked to pick one from the predefined promp
 
 ## Related plugins
 - [askGemini.nvim](https://github.com/agusnt/askGemini.nvim): This is the main source of inspiration for this plugin. It is a very good plugin, quite minimalistic in its design too. However I needed something that could be used without a popup window.
+- [gemini.nvim](https://github.com/kiddos/gemini.nvim): This plugin has more features and configuration options but is very oriented towards code.
+- [ai.nvim](https://github.com/gera2ld/ai.nvim): This plugin allows for other providers. Unlike simplegemini.nvim, it generates the answer in a new popup.
