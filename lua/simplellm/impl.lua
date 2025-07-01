@@ -1,7 +1,7 @@
 local M = {}
 
 -- List of supported endpoints
-local endpointsl = {"gemini", "groq"}	-- Only used for completion
+local endpointsl = {"gemini", "groq", "openrouter"}	-- Only used for completion
 local endpoints = {}
 local mt = {
 	__index = function(table, key)
