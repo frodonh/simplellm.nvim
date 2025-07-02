@@ -8,8 +8,9 @@ CONTENTS                                                *SimpleLLM*
     3. Configuration ...................... |SimpleLLMConfiguration|
     4. Commands  .......................... |SimpleLLMCommands|
     5. Functions  ......................... |SimpleLLMFunctions|
-    6. Changelog  ......................... |SimpleLLMChangelog|
-    7. Credits  ........................... |SimpleLLMCredits|
+    6. Adding new endpoints ............... |SimpleLLMEndpoints|
+    7. Changelog  ......................... |SimpleLLMChangelog|
+    8. Credits  ........................... |SimpleLLMCredits|
 
 ==============================================================================
 1. Features                                        *SimpleLLMFeatures*
@@ -26,25 +27,37 @@ any new keymap. You have to configure them by yourself.
 
 The plugin does not rely on third-party plugins. The plugin implementation 
 is lazily loaded. There is no need to use the package manager for a lazy 
-loading of the plugin.
+loading of the plugin. Each module of the plugin is also lazily loaded: for
+example the code to use a new endpoint is only loaded when the endpoint is
+used for the first time.
+
+The outputs of the LLM may be redirected:
+
+• either to the current buffer, where it may or not replace the current visual
+  selection ;
+• or to a register ;
+• or to a new scratch window.
 
 Other features: ~
 
-• Use Google Gemini and Groq endpoints
-• Use any LLM model (including the free ones)
+• Use Google Gemini, Groq and OpenRouter endpoints
+• Use any LLM model available on those API (including the free ones)
 • Setup predefined prompts for later use in the configuration options
+• When interacting through a scratch window, the previous conversation (the
+  "context")is remembered. This is not the case when the LLM output is
+  redirected to the current buffer or to a register.
 
 Known limits: ~
 
 The plugin has a number of limits, by design.
 
-• The history of the conversation with the LLM is not kept. The AI forgets all
-  your previous exchanges. This is because the plugin is designed to be used
-  for small edits on a buffer, not for a full conversation. If you want to
-  have a full conversation, use your browser and browse to the LLM homepage.
-• Calls to the LLM API are made synchronously. This may result in some
-  delay when producing the answer, but it feels more natural when updating
-  text in the current buffer.
+• Calls to the LLM API are made synchronously. This may result in some delay
+  when producing the answer, but it feels more natural when updating text in
+  the current buffer.
+• The list of available models for each endpoint is not obtained through a
+  call to the API, but is hard implemented in the plugin. This allows for a
+  fine selection of models, but is means the plugin has to be updated
+  frequently.
 
 ==============================================================================
 2. Installation                                    *SimpleLLMInstallation*
@@ -52,6 +65,7 @@ The plugin has a number of limits, by design.
 The plugin needs a LLM API key to connect to the LLM API. For Google Gemini, you 
 have to follow the instructions at https://aistudio.google.com/app/apikey?hl=fr
 For Groq, the instructions are available at https://console.groq.com/keys 
+For OpenRouter, the instructions are available at https://openrouter.ai/
 
 Installation with lazy.nvim ~
 
@@ -70,7 +84,8 @@ with the following specification.
  }
 
 It is unnecessary to call the setup() function if you don't want to customize
-the configuration.
+the configuration. The default configuration uses Gemini as the endpoint and
+one of the latest Gemini Flash as the model.
 
 Default options ~
 
@@ -79,14 +94,22 @@ rc file:
 
 >
  opts = {
-    endpoint = 'gemini',
-    gemini = {
-      model = 'gemini-2.5-flash'
+    endpoint = 'gemini',  -- Default endpoint
+    gemini = {  -- Parameters for the Gemini endpoint
+      model = 'gemini-2.5-flash',
     },
-    groq = {
+    groq = {  -- Parameters for the Groq endpoint
       model = 'compound-beta'
+    },
+    openrouter = {  -- Parameters for the OpenRouter endpoint
+      model = "mistralai/mistral-nemo:free",
+    },
+    language = 'fr', -- Default language, which is used for predefined prompts
+    prompts = { -- The following prompts will be added to the predefined one
+	    fr = {
+		    {action = "Résumer", prompt = "Résume le texte suivant. N'y ajoute ni introduction ni conclusion et ne renvoie que le texte résumé."}
+	    }
     }
-    language = 'fr',
  }
 
 A number of predefined prompts are also set for French and English languages.
@@ -98,36 +121,41 @@ A few configuration options are provided. They may be defined at startup (with
 require 'SimpleLLM'.setup({options}) ). {options} is a table with the
 configuration options.
 
-endpoint                 `gemini` or `groq` ; set the default endpoint to use
+endpoint                 `gemini` or `groq` or `openrouter` ; set the default 
+                         endpoint to use
 
 language                 Code of the language used for the predefined prompts.
                          For the moment only `fr` (French) and `en` (English)
-			 are supported. However, the user can add its own
-			 language with the `prompts` configuration option and
-			 set here the code of the new language to use it.
+                         are supported. However, the user can add its own
+                         language with the `prompts` configuration option and
+                         set here the code of the new language to use it.
 
 gemini.api_key           Gemini API key.
                          If not set in the options, the value from the
-			 'GEMINI_API_KEY' environment variable is used.
+                         'GEMINI_API_KEY' environment variable is used.
 
 gemini.model             LLM to use through the Gemini endpoint
 
 groq.api_key             Groq API key.
                          If not set in the options, the value from the
-			 'GROQ_API_KEY' environment variable is used.
+                         'GROQ_API_KEY' environment variable is used.
 
 groq.model               LLM to use through the Groq endpoint
 
-model                    LLM model name (default is 'llm-2.0-flash').
+openrouter.api_key       OpenRouter API key.
+                         If not set in the options, the value from the
+                         'OPENROUTER_API_KEY' environment variable is used.
+
+openrouter.model         LLM to use through the OpenRouter endpoint
 
 prompts                  Predefined prompts. This is a dictionary where the
                          keys are the codes of the languages (`fr`, `en`, or
-			 custom language set by the user) and the values are a
-			 table with the predefined prompts.
+                         custom language set by the user) and the values are a
+                         table with the predefined prompts.
 
                          Each item in this table should have two keys:
-			 • action: (string) Summary name of the action
-			 • prompt: (string) Prompt as sent to LLM API
+                         • action: (string) Summary name of the action
+                         • prompt: (string) Prompt as sent to LLM API
 
 ==============================================================================
 4. Commands                                        *SimpleLLMCommands*
@@ -135,78 +163,98 @@ prompts                  Predefined prompts. This is a dictionary where the
                                                         *:SimpleLLM*
 :[range]SimpleLLM Buffer {prompt}
                          Ask a question to LLM and insert answer
-			 before cursor position in the current buffer. If 
-			 specified, [prompt] is sent to LLM. If not, the
-			 user is asked interactively to choose between a list
-			 of predefined prompts.
+                         before cursor position in the current buffer. If 
+                         specified, [prompt] is sent to LLM. If not, the
+                         user is asked interactively to choose between a list
+                         of predefined prompts.
 
-			 If [range] is given, the prompt is followed by a
-			 newline and all the lines in the range.
+                         If [range] is given, the prompt is followed by a
+                         newline and all the lines in the range.
 
 :[range]SimpleLLM! Buffer {prompt}
                          Ask a question to LLM and insert answer
-			 before cursor position in the current buffer. If 
-			 specified, [prompt] is sent to LLM. If not, the
-			 user is asked interactively to choose between a list
-			 of predefined prompts.
+                         before cursor position in the current buffer. If 
+                         specified, [prompt] is sent to LLM. If not, the
+                         user is asked interactively to choose between a list
+                         of predefined prompts.
 
-			 If [range] is given, the prompt is followed by a
-			 newline and all the lines in the range. Unlike
-			 the previous plain version, the selection is deleted
-			 before the answer is inserted.
+                         If [range] is given, the prompt is followed by a
+                         newline and all the lines in the range. Unlike
+                         the previous plain version, the selection is deleted
+                         before the answer is inserted.
 
-			 In other words the selected text is used as the
-			 prompt for a LLM request, which may be preceded by
-			 another prompt, and is replaced by its answer.
+                         In other words the selected text is used as the
+                         prompt for a LLM request, which may be preceded by
+                         another prompt, and is replaced by its answer.
 
 :[range]SimpleLLM Reg {prompt}
                          Ask a question to LLM and fill the unnamed
-			 register with the answer. If specified, {prompt} is 
-			 sent to LLM. If not, the user is asked interactively
-			 to choose between a list of predefined prompts.
+                         register with the answer. If specified, {prompt} is 
+                         sent to LLM. If not, the user is asked interactively
+                         to choose between a list of predefined prompts.
 
-
-			 If [range] is given, the prompt is followed by a
-			 newline and all the lines in the range.
+                         If [range] is given, the prompt is followed by a
+                         newline and all the lines in the range.
 
 :[range]SimpleLLM Reg={name} {prompt}
                          Ask a question to LLM and fill the {name}
-			 register with the answer. If specified, {prompt} is 
-			 sent to LLM. If not, the user is asked interactively
-			 to choose between a list of predefined prompts.
+                         register with the answer. If specified, {prompt} is 
+                         sent to LLM. If not, the user is asked interactively
+                         to choose between a list of predefined prompts.
 
-			 {name} should be a single character specifying the
-			 buffer which will be filled with the answer of the
-			 request to LLM.
-			 
-			 If [range] is given, the prompt is followed by a
-			 newline and all the lines in the range.
+                         {name} should be a single character specifying the
+                         buffer which will be filled with the answer of the
+                         request to LLM.
+                         
+                         If [range] is given, the prompt is followed by a
+                         newline and all the lines in the range.
 
 :[range]SimpleLLM Scratch {prompt}
                          Ask a question to LLM and display the answer   
                          in a new floating window. If specified, {prompt}
-			 is sent to LLM. If not, the user is asked
-			 interactively to choose between a list of predefined
-			 prompts.
+                         is sent to LLM. If not, the user is asked
+                         interactively to choose between a list of predefined
+                         prompts.
 
-			 The floating window can be closed by pressing <Esc>.
-			 The content of the floating window is deleted when 
-			 it is closed.
+                         If [range] is given, the prompt is followed by a
+                         newline and all the lines in the range.
 
-			 If [range] is given, the prompt is followed by a
-			 newline and all the lines in the range.
+                         The floating window can be closed by pressing <C-C>.
+                         The content of the floating window is deleted when 
+                         it is closed.
+
+			 When the floating window is open, you can keep using
+			 the LLM. Each new question must be prefixed by "Q: "
+			 to be identified as a user input. The model remembers
+			 the start of the conversation. (This is the only mode
+			 in which the context is retained across calls to the
+			 API.)
+
+:SimpleLLM! Scratch
+                         Open a new floating window to interact with the LLM.
+
+                         The floating window can be closed by pressing <C-C>.
+                         The content of the floating window is deleted when 
+                         it is closed.
+
+			 When the floating window is open, you can keep using
+			 the LLM. Each new question must be prefixed by "Q: "
+			 to be identified as a user input. The model remembers
+			 the start of the conversation. (This is the only mode
+			 in which the context is retained across calls to the
+			 API.)
 
 :SimpleLLM set {endpoint} {model}
                          Set a new endpoint and model. The following calls to
-			 the API will use those values.
+                         the API will use those values.
 
-			 For the moment, two endpoints are usable:
-			 • `gemini` : Google Gemini API
-			 • `groq` : Groq API
+                         For the moment, two endpoints are usable:
+                         • `gemini` : Google Gemini API
+                         • `groq` : Groq API
 
-			 The lists of available models can be found on the
-			 respective API documentations. Some free models can
-			 be found by using the auto-completion feature.
+                         The lists of available models can be found on the
+                         respective API documentations. Some free models can
+                         be found by using the auto-completion feature.
 
 ==============================================================================
 5. Functions                                       *SimpleLLMFunctions*
@@ -220,7 +268,7 @@ setup({options})                                     *SimpleLLMSetup*
 
     Parameters: ~
       • {options}   Dictionary with options. See also
-	            |SimpleLLMConfiguration| for configuration parameters.
+                    |SimpleLLMConfiguration| for configuration parameters.
 
 
 process({args})                                      *SimpleLLMAsk*
@@ -231,19 +279,19 @@ process({args})                                      *SimpleLLMAsk*
 
     Parameters: ~
       • {args}      Dictionary of arguments. The table should have the same
-	            structure as the {command} argument of the 
-		    |nvim_create_user_command()| function (used to define new
-		    commands).
-		    Since this function matches the call protocol of commands,
-		    it is suitable to defe new commands. It is for example
-		    used by the |:SimpleLLM| command.
-		    The following keys are used:
-		    • args: (string) The prompt passed to the command, if any
-		    • range: (number) The number of items in the range passed
-		      to the function, 0 if no range was selected. If a range
-		      was selected, it will be added to the prompt.
-		    • line1: (number) The starting line of the command range
-		    • line2: (number) The final line of the command range
+                    structure as the {command} argument of the 
+                    |nvim_create_user_command()| function (used to define new
+                    commands).
+                    Since this function matches the call protocol of commands,
+                    it is suitable to defe new commands. It is for example
+                    used by the |:SimpleLLM| command.
+                    The following keys are used:
+                    • args: (string) The prompt passed to the command, if any
+                    • range: (number) The number of items in the range passed
+                      to the function, 0 if no range was selected. If a range
+                      was selected, it will be added to the prompt.
+                    • line1: (number) The starting line of the command range
+                    • line2: (number) The final line of the command range
 
     Return: ~
         Array of lines sent as answer by the LLM
@@ -259,7 +307,61 @@ send_prompt({prompt})                                *SimpleLLMSendPrompt*
         The text of the answer of the LLM API.
 
 ==============================================================================
-6. Changelog                                       *SimpleLLMChangelog*
+6. Adding new endpoints                              *SimpleLLMEndpoints*
+
+The plugin makes it easy to configure new endpoints. If you want to add the
+`mysuperendpoint` endpoint, just add a file `mysuperendpoint.lua` in the
+`lua/simplellm/` directory of the plugin.
+
+This file should return a module with one function named `configure()` with no
+argument. The function should return a dictionary with the following keys:
+
+
+`env_name`              This is the name of the environment variable which
+                      should be used to get the API key if it not given in
+                      the setup function of the plugin.
+
+`default_model`         Name of the default model for this endpoint
+
+`models`                Table of available models for this endpoint. The table
+                      is used to auto-complete the name of the models for the
+                      `SimpleLLM set` command.  
+
+`make_curl`             This function should return the curl command which will
+                      be passed to the shell to submit the request to the API.
+                      The command is given as an array of tokens.
+		      The function has three parameters:
+		      • json_body: (string) a JSON-encoded data-structure with
+			the request body
+		      • model: (string) the name of the model
+		      • api_key: (string) the API key
+
+`make_json_payload`     This function should return a data structure which
+                      will be sent to the API. The data structure will be
+		      encoded in JSON before sending (with the `make_curl`
+		      function).
+		      The function has three parameters:
+		      • context: (string or table) Either a string with the
+			prompt, or a table of strings with the context.
+			Prompts from the users should be prefixed by "Q: " in
+			the table.
+		      • model: (string) the name of the model
+		      • api_key: (string) the API key
+
+`extract_answer`        This function extracts the answer from the structure
+                      returned by the LLM API. It should returns a single
+		      string.
+		      The function has one parameter:
+		      • json_response: (table) Data structure returned by the
+			LLM API (after decoding from JSON).
+
+==============================================================================
+7. Changelog                                       *SimpleLLMChangelog*
+
+Date: July 2nd, 2025
+Add OpenRouter endpoint
+Added a feature to interact with the LLM in the scratch window and remember
+the context
 
 Date: June 24th, 2025
 Add Groq endpoint
@@ -271,7 +373,7 @@ Date: May 29th, 2025
 First version
 
 ==============================================================================
-7. Credits                                         *SimpleLLMCredits*
+8. Credits                                         *SimpleLLMCredits*
 
 This plugin takes its inspiration from askGemini.nvim which is available here:
 https://github.com/agusnt/askGemini.nvim/tree/main

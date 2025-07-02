@@ -14,14 +14,21 @@ function M.configure()
 				string.format("https://api.groq.com/openai/v1/chat/completions", model, api_key)
 			}
 		end,
-		make_json_payload = function(question_text, model, api_key)	-- Create request based on the question text
+		make_json_payload = function(context, model, api_key)	-- Create request based on the question text
+			local messages = {}
+			if type(context) == "string" then
+				messages = { { role = "user", content = context } }
+			else
+				for _, v in ipairs(context) do
+					if v:sub(1,2) == "Q:" then
+						table.insert(messages, { role = "user", content = v:sub(4) })
+					else
+						table.insert(messages, { role = "assistant", content = v:sub(4) })
+					end
+				end
+			end
 			return {
-				messages = {
-					{
-						role = "user",
-						content = question_text
-					}
-				},
+				messages = messages,
 				model = model,
 				max_completion_tokens = 1024,
 				stream = false

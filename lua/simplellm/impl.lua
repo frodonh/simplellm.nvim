@@ -17,7 +17,7 @@ setmetatable(endpoints, mt)
 local prompts = {}
 
 -- Sent a question to a LLM
-function M.send_prompt(config, question_text)
+function M.send_prompt(config, context)
 	-- Load endpoint configuration if needed
 	local llm = config.endpoint
 
@@ -25,28 +25,39 @@ function M.send_prompt(config, question_text)
 	local api_key = ( config[llm] and config[llm].api_key ) or os.getenv(endpoints[llm].env_name) or ''
     if api_key == '' then
         error('API key for endpoint ' .. llm .. ' is not set. Please set the environment variable ' .. endpoints[llm].env_name .. ' or pass it in setup.')
-		return
+		return {}
     end
 	local model = ( config[llm] and config[llm].model ) or endpoints[llm].default_model
 
     -- Construct JSON payload
-    local json_payload = endpoints[llm].make_json_payload(question_text, model, api_key)
+	-- First remove empty lines from context, they should not be sent to the API
+	if type(context) == "table" then
+		local newcontext = {}
+		for _, v in ipairs(context) do
+			if v:gsub("^%s+", ""):gsub("%s+$", "") ~= "" then
+				table.insert(newcontext, v)
+			end
+		end
+		context = newcontext
+	end
+    local json_payload = endpoints[llm].make_json_payload(context, model, api_key)
 
     -- Encode JSON safely
     local ok, json_body = pcall(vim.json.encode, json_payload)
 	if not ok then
-        return
+        return {}
     end
 
     -- Escape single quotes for the shell command (-d '...')
     -- WARNING: This is basic escaping and might not be fully secure if complex text is involved.
     -- Consider using libraries or more robust escaping if needed.
-    local escaped_json_body = string.gsub(json_body, "'", "'\\''")
+    --local escaped_json_body = string.gsub(json_body, "'", "'\\''")
+	local escaped_json_body = json_body
 
     -- Construct the curl command
     local cmd = endpoints[llm].make_curl(escaped_json_body, model, api_key)
 
-    -- Run the job asynchronously
+    -- Run the job synchronously
 	local res = ""
     local ret = vim.system(cmd, { text = true }):wait()
 	local data = ret.stdout
@@ -64,47 +75,77 @@ function M.send_prompt(config, question_text)
 				res = result_text
 			else
 				-- Handle cases where the expected structure isn't found
-				error("Error: Could not extract text from " .. llm .. " response.\n\nRaw Response:\n" .. data)
+				vim.notify("Call to endpoint " .. config.endpoint .. " failed: " .. "Could not extract text from " .. llm .. " response.\n\nRaw Response:\n" .. data)
+				return {}
 			end
 		elseif json_response and json_response.error then
 			 -- Handle API error message if present in JSON
 			local error_msg = json_response.error.message or "Unknown API error"
-			error("API Error: " .. error_msg .. "\n\nRaw Response:\n" .. data)
+			vim.notify("Call to endpoint " .. config.endpoint .. " failed: " .. "API Error: " .. error_msg .. "\n\nRaw Response:\n" .. data)
+			return {}
 		else
 			-- Handle non-JSON or malformed JSON response
-			error("Error: Received non-JSON or malformed response from API.\n\nRaw Response:\n" .. data)
+			vim.notify("Call to endpoint " .. config.endpoint .. " failed: " .. "Received non-JSON or malformed response from API.\n\nRaw Response:\n" .. data)
+			return {}
 		end
 	end
-	return res
+
+	-- Prepare a table of lines from the raw answer
+	local lines = {}
+	for s in res:gmatch("[^\r\n]+") do
+		table.insert(lines, s)
+	end
+	return lines
 end
 
-local function create_scratch_with_lines(config, lines)
+local function prefix_all_lines(lines, prefix)
+	for i, _ in ipairs(lines) do
+		lines[i] = prefix .. lines[i]
+	end
+end
+
+local function create_scratch_with_lines(config, prompt, answer)
 	local bufnr = vim.api.nvim_create_buf(false, true)
-	local winid = vim.api.nvim_open_win( bufnr, true, { title = ' ' .. config.endpoint .. ' ', title_pos = 'center', relative = 'editor', row = math.floor(((vim.o.lines-20)/2)-1), col = math.floor(vim.o.columns/2-30), height = 20, width = 60, style = 'minimal', border = 'rounded'} )
+	local winid = vim.api.nvim_open_win( bufnr, true, { title = ' ' .. config.endpoint .. ' ', title_pos = 'center', relative = 'editor', row = math.floor(((vim.o.lines-50)/2)-1), col = math.floor(vim.o.columns/2-50), height = 50, width = 100, style = 'minimal', border = 'rounded'} )
 	vim.api.nvim_win_set_option(winid, 'winblend', 0)
-	vim.keymap.set({'n'}, '<Esc>', function()
+	vim.keymap.set({''}, '<C-C>', function()
 		vim.api.nvim_buf_delete( bufnr, {force = true} )
 	end, {
 		buffer = bufnr,
 		silent = true,
 	})
-	vim.api.nvim_buf_set_lines( bufnr, 0, 0, false, lines )
+	vim.fn.matchadd('Statement',[[^Q: .*$]], 10, -1, {window = winid})
+	vim.fn.matchadd('Conceal',[[^Q: ]], 10, -1, {window = winid})
+	vim.wo.conceallevel = 2
+	vim.keymap.set({'i'}, '<CR>', function()
+		local cursor=vim.api.nvim_win_get_cursor(0)
+		local context = vim.api.nvim_buf_get_lines(0, 0, cursor[1], true)
+		local res = M.send_prompt(config, context)
+		vim.api.nvim_buf_set_lines( 0, cursor[1], -1, false, res )
+		vim.api.nvim_buf_set_lines( 0, -1, -1, false, {" ", "Q: "} )
+		vim.api.nvim_win_set_cursor(0, {cursor[1] + #res + 2, 3})
+	end, {
+		buffer = bufnr,
+		silent = true,
+	})
+	if #answer > 0 then
+		prefix_all_lines(prompt, "Q: ")
+		vim.api.nvim_buf_set_lines( bufnr, 0, 0, false, prompt )
+		vim.api.nvim_buf_set_lines( bufnr, #prompt, #prompt, false, answer )
+		vim.api.nvim_buf_set_lines( 0, #prompt + #answer, #prompt + #answer, false, {" ", "Q: "} )
+		vim.api.nvim_win_set_cursor(0, {#prompt + #answer + 2, 3})
+		vim.cmd('startinsert!')
+	else
+		vim.api.nvim_buf_set_lines( 0, 0, 0, false, {"Q: "} )
+		vim.api.nvim_win_set_cursor(0, {1, 3})
+		vim.cmd('startinsert!')
+	end
 end
 
 function M.complete(_, cmdline, _)
 	local res = {}
 	local m
 	local n
-	-- Test if the command has the forme :SimpleLLM set <endpoint> ...
-	m, n = cmdline:match("^.*SimpleLLM%s*set%s*(%S+)%s*(%S*)$")
-	if m and n then
-		if endpoints[m] then
-			for _, v in pairs(endpoints[m].models) do
-				if v:match('^' .. n) then table.insert(res, v) end
-			end
-			return res
-		end
-	end
 	-- Test if the command has the forme :SimpleLLM set ...
 	m = cmdline:match("^.*SimpleLLM%s*set%s*(%S*)$")
 	if m then
@@ -112,6 +153,16 @@ function M.complete(_, cmdline, _)
 			if v:match('^' .. m) then table.insert(res, v) end
 		end
 		return res
+	end
+	-- Test if the command has the forme :SimpleLLM set <endpoint> ...
+	m, n = cmdline:match("^.*SimpleLLM%s*set%s*(%S+)%s*(%S+)$")
+	if m and n then
+		if endpoints[m] and endpoints[m].models then
+			for _, v in pairs(endpoints[m].models) do
+				if v:match('^' .. n) then table.insert(res, v) end
+			end
+			return res
+		end
 	end
 	-- Test if the command has the forme :SimpleLLM ...
 	m = cmdline:match("^.*SimpleLLM!?%s*(%S*)$")
@@ -151,6 +202,11 @@ function M.process(config, args)
 		print("SimpleLLM endpoint set to " .. ep .. ", using model " .. mod)
 		return nil
 	end
+	-- Open chat window
+	if cmd == "Scratch" and args.bang then
+		create_scratch_with_lines(config, {}, {})
+		return nil
+	end
 	-- Build prompt
 	local prompt = rest
 	if prompt == nil or prompt == "" then
@@ -168,22 +224,16 @@ function M.process(config, args)
 		prompt = prompt .. "\n" .. table.concat(lines, "\n")
 	end
 	-- Get result
-	local ok, res = pcall( function() return M.send_prompt(config, prompt) end )
-	if not ok then
-		vim.notify("Call to endpoint " .. config.endpoint .. " failed: " .. res)
-		return {}
-	end
-	local lines = {}
-	if res == nil then
-		return {}
-	end
-	for s in res:gmatch("[^\r\n]+") do
-		table.insert(lines, s)
-	end
+	local lines = M.send_prompt(config, prompt)
 	-- Do something with the result
 	if cmd == 'Scratch' then
 		-- Send answer to new scratch window if the bang-form was used
-		create_scratch_with_lines(config, lines)
+		local promptl = prompt
+		prompt = {}
+		for s in promptl:gmatch('[^\r\n]+') do
+			table.insert(prompt, s)
+		end
+		create_scratch_with_lines(config, prompt, lines)
 	elseif cmd:sub(1, 3) == 'Reg' then
 		-- Send answer to provided register
 		local reg = (cmd:len() < 5) and '"' or cmd:sub(5, 5)

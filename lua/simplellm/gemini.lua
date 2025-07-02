@@ -13,8 +13,19 @@ function M.configure()
 				string.format("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, api_key)
 			}
 		end,
-		make_json_payload = function(question_text, model, api_key)	-- Create request based on the question text
-			return { contents = { { parts = { { text = question_text } } } } }
+		make_json_payload = function(context, model, api_key)	-- Create request based on the question text
+			if type(context) == "string" then
+				return { contents = { { parts = { { text = context } } } } }
+			end
+			local contents = {}
+			for _, v in ipairs(context) do
+				if v:sub(1,2) == "Q:" then
+					table.insert(contents, { role = "user", parts = { { text = v:sub(4) } } })
+				else
+					table.insert(contents, { role = "model", parts = { { text = v:sub(4) } } })
+				end
+			end
+			return { contents = contents }
 		end,
 		extract_answer = function(json_response)	-- Extract the answer from the JSON structure of the response
 			return json_response.candidates[1].content.parts[1].text
