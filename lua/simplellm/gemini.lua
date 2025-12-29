@@ -3,8 +3,8 @@ local M = {}
 function M.configure()
 	return {
 		env_name = "GEMINI_API_KEY", -- Name of the environment variable which can be used to set the API key
-		default_model = "gemini-2.0-flash",	-- Name of the default LLM
-		models = {"gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemma-3n-e4b-it"},	-- Available models
+		default_model = "gemini-3-flash-preview",	-- Name of the default LLM
+		models = {"gemini-3-flash-preview", "gemini-3-pro-preview", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemma-3n-e4b-it"},	-- Available models
 		make_curl = function(json_body, model, api_key)	-- Build the curl command parameters
 			return {
 				"curl", "-s", "-X", "POST",
