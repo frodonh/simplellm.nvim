@@ -3,8 +3,8 @@ local M = {}
 function M.configure()
 	return {
 		env_name = "GROQ_API_KEY", -- Name of the environment variable which can be used to set the API key
-		default_model = "compound-beta",	-- Name of the default LLM
-		models = { "compound-beta", "compound-beta-mini", "deepseek-r1-distill-llama-70b", "qwen-qwq-32b", "meta-llama/llama-4-maverick-17b-128e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct", "mistral-saba-24b", "gemma2-9b-it" },
+		default_model = "grok/compound",	-- Name of the default LLM
+		models = { "grok/compound", "grok/compound-mini", "qwen/qwen3.6-27b", "llama-3.1-8b-instant", "llama-3.3-70b-versatile", "openai/gpt-oss-120b" },
 		make_curl = function(json_body, model, api_key)	-- Build the curl command parameters
 			return {
 				"curl", "-s", "-X", "POST",
