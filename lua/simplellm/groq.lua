@@ -17,8 +17,8 @@ local function get_models()    -- Get a list of available models
 		return {}
 	end
 	return require('simplellm.utils').filter(json_response.data, function(e)
-		if not e["input_modalities"] or not require('simplellm.utils').table_contains(e['input_modalities'], "text") or not e["output_modalites"] or not require('simplellm.utils').table_contains(e['output_modalities'], "text") or e["context_length"]<1000 then
-			return {}
+		if not e["input_modalities"] or not require('simplellm.utils').table_contains(e['input_modalities'], "text") or not e["output_modalities"] or not require('simplellm.utils').table_contains(e['output_modalities'], "text") or e["context_length"]<1000 then
+			return nil
 		end
 		return e['id']
 	end)

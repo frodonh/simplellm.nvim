@@ -5,13 +5,14 @@ SimpleLLM.nvim let you chat with LLM AI from inside Neovim.
 ## Features
 SimpleLLM plugin let you ask something to an online LLM without leaving NeoVim. The plugin is written in Lua and takes its inspiration from askGemini.nvim. Contrary to other feature-rich plugins available on Github, this one strives to avoid imposing a specific workflow on the user.
 
-At the moment three endpoints are supported:
+At the moment four endpoints are supported:
 
 - [Google Gemini](https://aistudio.google.com/prompts/new_chat)
 - [Groq](https://console.groq.com/playground)
 - [OpenRouter](https://openrouter.ai/)
+- [Albert API](https://ia.numerique.gouv.fr/outils-ia/albert-api/)
 
-All the free LLM available on those endpoints can be used.
+All the free LLM available on those endpoints can be used. You get access to dozens of LLMs throught the different endpoints.
 
 It only adds one new command and several Lua functions to your environment (see also [Commands](#SimpleLLMCommands)). It does not create any new keymap. You have to configure them by yourself.
 
@@ -36,6 +37,7 @@ The plugin may need an API key to connect to the API.
 - For Google Gemini, you have to follow the instructions at <https://aistudio.google.com/app/apikey?hl=fr>.
 - For Groq, you have to follow the instructions at <https://console.groq.com/keys>.
 - For OpenRouter, you have to follow the instructions at <https://openrouter.ai/settings/keys>.
+- For Albert API, you have to be a member of a French public administration of agency. You can then follow the instructions at <https://albert.playground.gouv.fr/>.
 
 ### Installation with lazy.nvim
 If you use lazy.nvim as your package manager, you can install SimpleLLM.nvim with the following specification.
@@ -51,6 +53,17 @@ return {
   }
   -- Other plugins
 }
+```
+
+### Installation with vim.pack (Neovim native package manager)
+With Neovim's native package manager, you can install SimpleLLM.nvim with the following specification in your `init.lua` file.
+
+```lua
+vim.schedule(function()
+	vim.pack.add({
+		"https://github.com/frodonh/simplellm.nvim"
+	})
+end)
 ```
 
 Available options are described [later](#configuration-options).
@@ -75,7 +88,7 @@ The configuration options can be set when the plugin is loaded (see [Installatio
 require 'simplellm'.setup({
 	endpoint = 'gemini', -- Default endpoint
 	gemini = {  -- Parameters for the Gemini endpoint
-		model = "gemini-2.5-flash",
+		model = "models/gemini-3.5-flash",
 		api_key = "gkeoc2dmclr", -- This is a fake key obviously
 	},
 	groq = { -- Parameters for the Groq endpoint
@@ -85,6 +98,10 @@ require 'simplellm'.setup({
 	openrouter = {
 		model = "mistralai/mistral-nemo:free",
 		api_key= "tç(6çnl_cvl'1'k(l)')"	-- This is also a fake key
+	},
+	albert = {
+		model = "gpt-oss-120b",
+		api_key  = "6Tgolabpal" -- Still a fake one
 	},
 	language = 'fr', -- Default language, which is used for predefined prompts
 	prompts = { -- The following prompts will be added to the predefined one

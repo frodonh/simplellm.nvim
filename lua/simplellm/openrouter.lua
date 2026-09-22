@@ -17,8 +17,8 @@ local function get_models()    -- Get a list of available models
 		return {}
 	end
 	return require('simplellm.utils').filter(json_response.data, function(e)
-		if not e["architecture"] or not e["architecture"]["input_modalities"] or not require('simplellm.utils').table_contains(e["architecture"]['input_modalities'], "text") or not e["architecture"]["output_modalites"] or not require('simplellm.utils').table_contains(e["architecture"]['output_modalities'], "text") then
-			return {}
+		if not e["architecture"] or not e["architecture"]["input_modalities"] or not require('simplellm.utils').table_contains(e["architecture"]['input_modalities'], "text") or not e["architecture"]["output_modalities"] or not require('simplellm.utils').table_contains(e["architecture"]['output_modalities'], "text") then
+			return nil
 		end
 		return e['id']
 	end)
