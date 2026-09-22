@@ -1,10 +1,6 @@
 local M={}
 
--- Default parameters values
-M.config = {}
-M.config.endpoint = 'gemini'
-M.config.prompts = {}
-M.config.language = 'fr'
+M.config = require('simplellm.config')
 
 -- Setup configuration
 function M.setup(options)
@@ -13,17 +9,17 @@ end
 
 -- Custom complete function for subcommands
 function M.complete(arglead, cmdline, cursorpos)
-	return require('simplellm/impl').complete(arglead, cmdline, cursorpos)
+	return require('simplellm.impl').complete(arglead, cmdline, cursorpos)
 end
 
 -- Sent a question to a LLM
 function M.send_prompt(question_text)
-	return require('simplellm/impl').send_prompt(M.config, question_text)
+	return require('simplellm.impl').send_prompt(question_text)
 end
 
 -- Process command arguments, wraps a call to the LLM and the processing of the answer
 function M.process(args)
-	return require('simplellm/impl').process(M.config, args)
+	return require('simplellm.impl').process(args)
 end
 
 return M

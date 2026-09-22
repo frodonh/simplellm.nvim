@@ -1,4 +1,5 @@
 local M = {}
+local config = require('simplellm.config')
 
 -- List of supported endpoints
 local endpointsl = {"gemini", "groq", "openrouter"}	-- Only used for completion
@@ -6,7 +7,7 @@ local endpoints = {}
 local mt = {
 	__index = function(table, key)
 		local ok, res
-		ok, res = pcall(function() return require('simplellm/' .. key).configure() end)
+		ok, res = pcall(function() return require('simplellm/' .. key) end)
 		if ok then
 			table[key] = res
 		end
@@ -17,17 +18,9 @@ setmetatable(endpoints, mt)
 local prompts = {}
 
 -- Sent a question to a LLM
-function M.send_prompt(config, context)
+function M.send_prompt(context)
 	-- Load endpoint configuration if needed
 	local llm = config.endpoint
-
-	-- Get model and API key
-	local api_key = ( config[llm] and config[llm].api_key ) or os.getenv(endpoints[llm].env_name) or ''
-    if api_key == '' then
-        error('API key for endpoint ' .. llm .. ' is not set. Please set the environment variable ' .. endpoints[llm].env_name .. ' or pass it in setup.')
-		return {}
-    end
-	local model = ( config[llm] and config[llm].model ) or endpoints[llm].default_model
 
     -- Construct JSON payload
 	-- First remove empty lines from context, they should not be sent to the API
@@ -40,7 +33,8 @@ function M.send_prompt(config, context)
 		end
 		context = newcontext
 	end
-    local json_payload = endpoints[llm].make_json_payload(context, model, api_key)
+
+    local json_payload = endpoints[llm].make_json_payload(context)
 
     -- Encode JSON safely
     local ok, json_body = pcall(vim.json.encode, json_payload)
@@ -55,7 +49,7 @@ function M.send_prompt(config, context)
 	local escaped_json_body = json_body
 
     -- Construct the curl command
-    local cmd = endpoints[llm].make_curl(escaped_json_body, model, api_key)
+    local cmd = endpoints[llm].make_curl(escaped_json_body)
 
     -- Run the job synchronously
 	local res = ""
@@ -104,7 +98,7 @@ local function prefix_all_lines(lines, prefix)
 	end
 end
 
-local function create_scratch_with_lines(config, prompt, answer)
+local function create_scratch_with_lines(prompt, answer)
 	local bufnr = vim.api.nvim_create_buf(false, true)
 	local winid = vim.api.nvim_open_win( bufnr, true, { title = ' ' .. config.endpoint .. ' ', title_pos = 'center', relative = 'editor', row = math.floor(((vim.o.lines-50)/2)-1), col = math.floor(vim.o.columns/2-50), height = 50, width = 100, style = 'minimal', border = 'rounded'} )
 	vim.api.nvim_win_set_option(winid, 'winblend', 0)
@@ -120,7 +114,7 @@ local function create_scratch_with_lines(config, prompt, answer)
 	vim.keymap.set({'i'}, '<CR>', function()
 		local cursor=vim.api.nvim_win_get_cursor(0)
 		local context = vim.api.nvim_buf_get_lines(0, 0, cursor[1], true)
-		local res = M.send_prompt(config, context)
+		local res = M.send_prompt(context)
 		vim.api.nvim_buf_set_lines( 0, cursor[1], -1, false, res )
 		vim.api.nvim_buf_set_lines( 0, -1, -1, false, {" ", "Q: "} )
 		vim.api.nvim_win_set_cursor(0, {cursor[1] + #res + 2, 3})
@@ -146,16 +140,8 @@ function M.complete(_, cmdline, _)
 	local res = {}
 	local m
 	local n
-	-- Test if the command has the forme :SimpleLLM set ...
-	m = cmdline:match("^.*SimpleLLM%s*set%s*(%S*)$")
-	if m then
-		for _, v in pairs(endpointsl) do
-			if v:match('^' .. m) then table.insert(res, v) end
-		end
-		return res
-	end
 	-- Test if the command has the forme :SimpleLLM set <endpoint> ...
-	m, n = cmdline:match("^.*SimpleLLM%s*set%s*(%S+)%s*(%S+)$")
+	m, n = cmdline:match("^.*SimpleLLM%s+set%s+(%S+)%s+(%S*)$")
 	if m and n then
 		if endpoints[m] and endpoints[m].models then
 			for _, v in pairs(endpoints[m].models) do
@@ -164,8 +150,16 @@ function M.complete(_, cmdline, _)
 			return res
 		end
 	end
+	-- Test if the command has the forme :SimpleLLM set ...
+	m = cmdline:match("^.*SimpleLLM%s+set%s+(%S*)$")
+	if m then
+		for _, v in pairs(endpointsl) do
+			if v:match('^' .. m) then table.insert(res, v .. ' ') end
+		end
+		return res
+	end
 	-- Test if the command has the forme :SimpleLLM ...
-	m = cmdline:match("^.*SimpleLLM!?%s*(%S*)$")
+	m = cmdline:match("^.*SimpleLLM!?%s+(%S*)$")
 	if not m then return nil ; end
 	for _, v in pairs({"Scratch ", "Reg=", "Buffer ", "set "}) do
 		if v:match("^" .. m) then table.insert(res, v) ; end
@@ -173,7 +167,7 @@ function M.complete(_, cmdline, _)
 	return res
 end
 
-local function GetPrompts(config)
+local function GetPrompts()
 	if not prompts[config.language] then
 		prompts[config.language] = require('simplellm/prompts').prompts[config.language]
 		prompts[config.language] = vim.tbl_deep_extend("force", prompts[config.language], config.prompts[config.language] or {})
@@ -181,7 +175,7 @@ local function GetPrompts(config)
 	return prompts[config.language]
 end
 
-function M.process(config, args)
+function M.process(args)
 	if args.args == nil then
 		return nil
 	end
@@ -195,22 +189,22 @@ function M.process(config, args)
 			if not config[ep] then
 				config[ep] = {}
 			end
-			config[ep].model = mod
 		else
 			mod = endpoints[ep].default_model
 		end
+		config[ep].model = mod
 		print("SimpleLLM endpoint set to " .. ep .. ", using model " .. mod)
 		return nil
 	end
 	-- Open chat window
 	if cmd == "Scratch" and args.bang then
-		create_scratch_with_lines(config, {}, {})
+		create_scratch_with_lines({}, {})
 		return nil
 	end
 	-- Build prompt
 	local prompt = rest
 	if prompt == nil or prompt == "" then
-		vim.ui.select(GetPrompts(config), {
+		vim.ui.select(GetPrompts(), {
 			prompt = 'Select prompt:',
 			format_item = function(item)
 				return item.action
@@ -224,7 +218,7 @@ function M.process(config, args)
 		prompt = prompt .. "\n" .. table.concat(lines, "\n")
 	end
 	-- Get result
-	local lines = M.send_prompt(config, prompt)
+	local lines = M.send_prompt(prompt)
 	-- Do something with the result
 	if cmd == 'Scratch' then
 		-- Send answer to new scratch window if the bang-form was used
@@ -233,7 +227,7 @@ function M.process(config, args)
 		for s in promptl:gmatch('[^\r\n]+') do
 			table.insert(prompt, s)
 		end
-		create_scratch_with_lines(config, prompt, lines)
+		create_scratch_with_lines(prompt, lines)
 	elseif cmd:sub(1, 3) == 'Reg' then
 		-- Send answer to provided register
 		local reg = (cmd:len() < 5) and '"' or cmd:sub(5, 5)
