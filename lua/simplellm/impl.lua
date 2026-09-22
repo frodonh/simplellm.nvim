@@ -2,7 +2,7 @@ local M = {}
 local config = require('simplellm.config')
 
 -- List of supported endpoints
-local endpointsl = {"gemini", "groq", "openrouter"}	-- Only used for completion
+local endpointsl = {"gemini", "groq", "openrouter", "albert"}	-- Only used for completion
 local endpoints = {}
 local mt = {
 	__index = function(table, key)
@@ -190,7 +190,7 @@ function M.process(args)
 				config[ep] = {}
 			end
 		else
-			mod = endpoints[ep].default_model
+			mod = endpoints[ep].model
 		end
 		config[ep].model = mod
 		print("SimpleLLM endpoint set to " .. ep .. ", using model " .. mod)
