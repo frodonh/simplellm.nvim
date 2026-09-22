@@ -40,11 +40,11 @@ The outputs of the LLM may be redirected:
 
 Other features: ~
 
-• Use Google Gemini, Groq and OpenRouter endpoints
+• Use Google Gemini, Groq, OpenRouter, and Albert API endpoints
 • Use any LLM model available on those API (including the free ones)
 • Setup predefined prompts for later use in the configuration options
 • When interacting through a scratch window, the previous conversation (the
-  "context")is remembered. This is not the case when the LLM output is
+  "context") is remembered. This is not the case when the LLM output is
   redirected to the current buffer or to a register.
 
 Known limits: ~
@@ -54,10 +54,10 @@ The plugin has a number of limits, by design.
 • Calls to the LLM API are made synchronously. This may result in some delay
   when producing the answer, but it feels more natural when updating text in
   the current buffer.
-• The list of available models for each endpoint is not obtained through a
-  call to the API, but is hard implemented in the plugin. This allows for a
-  fine selection of models, but is means the plugin has to be updated
-  frequently.
+• There is no dedicated interface to interact with the plugin, except for the
+  scratch window. The plugin is meant to be used directly in a text buffer.
+• The AI does not remember the context of previous calls, except when it is
+  called through the scratch window.
 
 ==============================================================================
 2. Installation                                    *SimpleLLMInstallation*
@@ -66,12 +66,17 @@ The plugin needs a LLM API key to connect to the LLM API. For Google Gemini, you
 have to follow the instructions at https://aistudio.google.com/app/apikey?hl=fr
 For Groq, the instructions are available at https://console.groq.com/keys 
 For OpenRouter, the instructions are available at https://openrouter.ai/
+For Albert, the instructions are available at https://albert.playground.gouv.fr/
+
+It is unnecessary to call the setup() function if you don't want to customize
+the configuration. The default configuration uses Gemini as the endpoint and
+one of the latest Gemini Flash as the model.
 
 Installation with lazy.nvim ~
 
 If you use lazy.nvim as your package manager, you can install SimpleLLM.nvim
 with the following specification.
->
+>lua
  return {
     [...]
     {
@@ -82,33 +87,52 @@ with the following specification.
     }
     [...]
  }
+<
 
-It is unnecessary to call the setup() function if you don't want to customize
-the configuration. The default configuration uses Gemini as the endpoint and
-one of the latest Gemini Flash as the model.
+Installation with Neovim's native package manager ~
+If you use the native package manager vim.pack, you can install SimpleLLM.nvim
+with the following specification.
+>lua
+ vim.schedule(function()
+   vim.pack.add({
+     "https://github.com/frodonh/simplellm.nvim"
+   })
+ end)
+<
 
 Default options ~
 
 The following options are set by default. You don't have to set them in your
 rc file:
 
->
+>lua
  opts = {
     endpoint = 'gemini',  -- Default endpoint
     gemini = {  -- Parameters for the Gemini endpoint
-      model = 'gemini-2.5-flash',
+      model = 'models/gemini-flash-latest',
     },
     groq = {  -- Parameters for the Groq endpoint
-      model = 'compound-beta'
+      -- No default model because there is no alias for the latest one, 
+      -- the default model depends on the order of the listing of models
+      -- returned by the API
     },
     openrouter = {  -- Parameters for the OpenRouter endpoint
-      model = "mistralai/mistral-nemo:free",
+      -- No default model because there is no alias for the latest one,
+      -- the default model depends on the order of the listing of models
+      -- returned by the API
+    },
+    albert = {  -- Parameters for the Albert API endpoint
+      model = 'gpt-oss-120b'
     },
     language = 'fr', -- Default language, which is used for predefined prompts
     prompts = { -- The following prompts will be added to the predefined one
-	    fr = {
-		    {action = "Résumer", prompt = "Résume le texte suivant. N'y ajoute ni introduction ni conclusion et ne renvoie que le texte résumé."}
-	    }
+      fr = {
+        --{
+	  --action = "Résumer",
+	  --prompt = "Résume le texte suivant. N'y ajoute ni introduction ni 
+	  --conclusion et ne renvoie que le texte résumé."
+	--}
+      }
     }
  }
 
@@ -121,8 +145,8 @@ A few configuration options are provided. They may be defined at startup (with
 require 'SimpleLLM'.setup({options}) ). {options} is a table with the
 configuration options.
 
-endpoint                 `gemini` or `groq` or `openrouter` ; set the default 
-                         endpoint to use
+endpoint                 `gemini` or `groq` or `openrouter` or `albert` ; set 
+                         the default endpoint to use
 
 language                 Code of the language used for the predefined prompts.
                          For the moment only `fr` (French) and `en` (English)
@@ -147,6 +171,12 @@ openrouter.api_key       OpenRouter API key.
                          'OPENROUTER_API_KEY' environment variable is used.
 
 openrouter.model         LLM to use through the OpenRouter endpoint
+
+albert.api_key           Albert API key.
+                         If not set in the options, the value from the
+			 'ALBERT_API_KEY' environment variable is used.
+
+albert.model             LLM to use through the Albert API endpoint
 
 prompts                  Predefined prompts. This is a dictionary where the
                          keys are the codes of the languages (`fr`, `en`, or
@@ -313,15 +343,10 @@ The plugin makes it easy to configure new endpoints. If you want to add the
 `mysuperendpoint` endpoint, just add a file `mysuperendpoint.lua` in the
 `lua/simplellm/` directory of the plugin.
 
-This file should return a module with one function named `configure()` with no
-argument. The function should return a dictionary with the following keys:
+This file should return a module with several members.
 
 
-`env_name`              This is the name of the environment variable which
-                      should be used to get the API key if it not given in
-                      the setup function of the plugin.
-
-`default_model`         Name of the default model for this endpoint
+`model`                 Name of the default model for this endpoint
 
 `models`                Table of available models for this endpoint. The table
                       is used to auto-complete the name of the models for the
@@ -357,6 +382,10 @@ argument. The function should return a dictionary with the following keys:
 
 ==============================================================================
 7. Changelog                                       *SimpleLLMChangelog*
+
+Date: September 23rd, 2026
+Add Albert API endpoint
+Automatically detects language models available from each endpoint
 
 Date: July 2nd, 2025
 Add OpenRouter endpoint
