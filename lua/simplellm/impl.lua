@@ -185,11 +185,10 @@ function M.process(args)
 	if cmd == 'set' then
 		local ep, mod = rest:match('^(%S+)%s*(%S*)')
 		config.endpoint = ep
-		if mod and mod ~= "" then
-			if not config[ep] then
-				config[ep] = {}
-			end
-		else
+		if not config[ep] then
+			config[ep] = {}
+		end
+		if mod == nil or mod == "" then
 			mod = endpoints[ep].model
 		end
 		config[ep].model = mod
